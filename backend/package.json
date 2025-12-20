@@ -1,0 +1,43 @@
+{
+  "name": "fully-automated-video-publishing-pipeline",
+  "description": "",
+  "type": "module",
+  "scripts": {
+    "postinstall": "motia install",
+    "dev": "motia dev",
+    "start": "motia start",
+    "generate-types": "motia generate-types",
+    "build": "motia build",
+    "clean": "rm -rf dist node_modules python_modules .motia .mermaid",
+    "prettier": "prettier . --write"
+  },
+  "keywords": [
+    "motia"
+  ],
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.956.0",
+    "@aws-sdk/lib-storage": "^3.956.0",
+    "@aws-sdk/s3-request-presigner": "^3.956.0",
+    "@motiadev/adapter-bullmq-events": "^0.17.9-beta.191",
+    "@motiadev/core": "^0.17.9-beta.191",
+    "@motiadev/plugin-bullmq": "^0.17.9-beta.191",
+    "@motiadev/plugin-endpoint": "^0.17.9-beta.191",
+    "@motiadev/plugin-logs": "^0.17.9-beta.191",
+    "@motiadev/plugin-observability": "^0.17.9-beta.191",
+    "@motiadev/plugin-states": "^0.17.9-beta.191",
+    "chokidar": "^5.0.0",
+    "google-auth-library": "^10.5.0",
+    "googleapis": "^169.0.0",
+    "mongoose": "^9.0.2",
+    "motia": "^0.17.9-beta.191",
+    "openai": "^6.15.0",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@motiadev/workbench": "^0.17.9-beta.191",
+    "@types/react": "^19.2.7",
+    "prettier": "^3.7.4",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.3"
+  }
+}

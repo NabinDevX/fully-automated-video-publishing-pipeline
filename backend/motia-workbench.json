@@ -1,0 +1,49 @@
+[
+  {
+    "id": "hello-world-flow",
+    "config": {
+      "src/hello/process-greeting.step.ts": {
+        "x": 409,
+        "y": 44
+      },
+      "src/hello/hello-api.step.ts": {
+        "x": 0,
+        "y": 0,
+        "sourceHandlePosition": "right"
+      }
+    }
+  },
+  {
+    "id": "yt.video.upload",
+    "config": {
+      "src\\jobs\\folder-watcher.step.ts": {
+        "x": -389,
+        "y": -243
+      },
+      "src\\events\\process-file.step.ts": {
+        "x": -40,
+        "y": -212
+      },
+      "src\\events\\error-handeler.step.ts": {
+        "x": 1444,
+        "y": 10
+      },
+      "src\\apis\\01.1.2-yt-callback.step.ts": {
+        "x": -837,
+        "y": 125
+      },
+      "src\\apis\\01.1.1-yt-channel-auth.step.ts": {
+        "x": -855,
+        "y": -92
+      },
+      "src\\apis\\01.2.1-detect-videos.step.ts": {
+        "x": 586,
+        "y": -145
+      },
+      "src\\events\\generate-prompts.step.ts": {
+        "x": 445,
+        "y": 319
+      }
+    }
+  }
+]
