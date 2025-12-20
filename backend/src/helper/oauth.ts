@@ -1,53 +1,40 @@
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
 import { google } from "googleapis";
 import { Credentials, OAuth2Client } from "google-auth-library";
 import { YouTubeToken } from "../models/YouTubeToken";
 
-const CLIENT_SECRET_PATH = join(process.cwd(), "config/client_secret.json");
-
-interface WebCredentials {
-  client_id: string;
-  client_secret: string;
-  redirect_uris: string[];
+interface OAuthCredentials {
+  clientId: string;
+  clientSecret: string;
+  redirectUri: string;
 }
 
-interface ClientSecrets {
-  web: WebCredentials;
-}
+let cachedCredentials: OAuthCredentials | null = null;
 
-let cachedCredentials: WebCredentials | null = null;
-
-function loadClientSecrets(): WebCredentials | null {
-  if (!existsSync(CLIENT_SECRET_PATH)) {
-    console.warn("⚠️ client_secret.json not found at:", CLIENT_SECRET_PATH);
-    return null;
+function getCredentials(): OAuthCredentials {
+  if (cachedCredentials) {
+    return cachedCredentials;
   }
 
-  try {
-    const content = readFileSync(CLIENT_SECRET_PATH, "utf-8");
-    const secrets = JSON.parse(content) as ClientSecrets;
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || "http://localhost:3000/auth/callback";
 
-    if (!secrets.web) {
-      console.error('❌ Invalid client_secret.json: Missing "web" credentials.');
-      return null;
-    }
-
-    return secrets.web;
-  } catch (error) {
-    console.error("❌ Failed to parse client_secret.json:", error);
-    return null;
-  }
-}
-
-function getCredentials(): WebCredentials {
-  if (!cachedCredentials) {
-    cachedCredentials = loadClientSecrets();
+  if (!clientId || !clientSecret) {
+    throw new Error(
+      "OAuth not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET environment variables.\n" +
+      "Steps:\n" +
+      "1. Go to Google Cloud Console > APIs & Services > Credentials\n" +
+      "2. Create OAuth 2.0 Client ID > Web application\n" +
+      "3. Add redirect URI: http://localhost:3000/auth/callback\n" +
+      "4. Copy Client ID and Client Secret to .env file"
+    );
   }
 
-  if (!cachedCredentials) {
-    throw new Error("OAuth not configured. Please add client_secret.json to config/ folder.");
-  }
+  cachedCredentials = {
+    clientId,
+    clientSecret,
+    redirectUri,
+  };
 
   return cachedCredentials;
 }
@@ -62,25 +49,17 @@ export function isOAuthConfigured(): boolean {
 }
 
 export function getOAuth2Client(): OAuth2Client {
-  const { client_id, client_secret, redirect_uris } = getCredentials();
+  const { clientId, clientSecret, redirectUri } = getCredentials();
 
-  return new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris[0] || "http://localhost:3000/auth/callback"
-  );
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
 }
 
 export function createOAuthClient(tokens: Credentials): OAuth2Client {
-  const { client_id, client_secret, redirect_uris } = getCredentials();
+  const { clientId, clientSecret, redirectUri } = getCredentials();
 
-  const client = new google.auth.OAuth2(
-    client_id,
-    client_secret,
-    redirect_uris[0] || "http://localhost:3000/auth/callback"
-  );
-
+  const client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
   client.setCredentials(tokens);
+
   return client;
 }
 
@@ -115,9 +94,6 @@ export async function refreshTokens(client: OAuth2Client): Promise<Credentials> 
   return credentials;
 }
 
-// ============ MongoDB Token Storage ============
-
-// Save tokens - only email and tokens (timestamps auto-added by mongoose)
 export async function saveTokensForUser(
   email: string,
   tokens: Credentials
@@ -133,7 +109,6 @@ export async function saveTokensForUser(
   console.log(`✅ Tokens saved for: ${normalizedEmail}`);
 }
 
-// Load tokens for user
 export async function loadTokensForUser(
   email: string
 ): Promise<Credentials | null> {
@@ -142,14 +117,12 @@ export async function loadTokensForUser(
   return record?.tokens || null;
 }
 
-// Delete tokens for user
 export async function deleteTokensForUser(email: string): Promise<void> {
   const normalizedEmail = email.toLowerCase().trim();
   await YouTubeToken.deleteOne({ email: normalizedEmail });
   console.log(`🗑️ Tokens deleted for: ${normalizedEmail}`);
 }
 
-// Get first connected user
 export async function getFirstConnectedUser(): Promise<{
   email: string;
   tokens: Credentials;
@@ -164,13 +137,11 @@ export async function getFirstConnectedUser(): Promise<{
   };
 }
 
-// Check if any user is connected
 export async function isAnyUserConnected(): Promise<boolean> {
   const count = await YouTubeToken.countDocuments();
   return count > 0;
 }
 
-// Get authenticated client for user
 export async function getAuthenticatedClient(email: string): Promise<OAuth2Client> {
   const tokens = await loadTokensForUser(email);
 
@@ -181,7 +152,6 @@ export async function getAuthenticatedClient(email: string): Promise<OAuth2Clien
   const oauth2Client = getOAuth2Client();
   oauth2Client.setCredentials(tokens);
 
-  // Auto-refresh and save new tokens
   oauth2Client.on("tokens", async (newTokens) => {
     console.log("🔄 Refreshing tokens for:", email);
     await saveTokensForUser(email, { ...tokens, ...newTokens });
@@ -190,13 +160,11 @@ export async function getAuthenticatedClient(email: string): Promise<OAuth2Clien
   return oauth2Client;
 }
 
-// Get YouTube API client
 export async function getYouTubeClient(email: string) {
   const auth = await getAuthenticatedClient(email);
   return google.youtube({ version: "v3", auth });
 }
 
-// Get email from ID token
 export async function getEmailFromIdToken(idToken: string): Promise<string> {
   const client = new OAuth2Client();
   const ticket = await client.verifyIdToken({ idToken });

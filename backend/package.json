@@ -7,7 +7,7 @@
     "dev": "motia dev",
     "start": "motia start",
     "generate-types": "motia generate-types",
-    "build": "motia build",
+    "build": "npx motia build",
     "clean": "rm -rf dist node_modules python_modules .motia .mermaid",
     "prettier": "prettier . --write"
   },
