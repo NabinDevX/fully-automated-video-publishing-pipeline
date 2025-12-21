@@ -1,45 +1,52 @@
 import type { EventConfig, Handlers } from "motia";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import * as fs from "fs";
-import * as path from "path";
+import { uploadThumbnail } from "../shared/storage";
+import type { SupportedThumbnailFormat } from "../shared/interfaces";
 
 export const config: EventConfig = {
   name: "Generate-Thumbnail-Image",
   type: "event",
-  description: "Generate thumbnail image using Gemini AI",
+  description: "Generate thumbnail image using Gemini AI and upload to S3",
   flows: ["yt.video.upload"],
-  subscribes: ["thumbnail.prompts.generated"],
+  subscribes: ["prompts.generated"],
   emits: [
     { topic: "thumbnail.image.generated", label: "Thumbnail Image Generated" },
     { topic: "thumbnail.image.generation.error", label: "Generation Error", conditional: true },
   ],
 };
 
+interface PromptsGeneratedInput {
+  traceId: string;
+  title: string;
+  description: string;
+  tags: string[];
+  thumbnailPrompt: string;
+  thumbnailStyle: string;
+  thumbnailColors: string[];
+  thumbnailTextOverlay: string;
+}
+
 export const handler: Handlers["Generate-Thumbnail-Image"] = async (
-  input: any,
+  input: PromptsGeneratedInput,
   { emit, logger, state }: any
 ) => {
-  const { traceId } = input;
+  const { traceId, thumbnailPrompt, thumbnailStyle, thumbnailColors, thumbnailTextOverlay } = input;
 
   try {
     logger.info("Starting thumbnail generation", { traceId });
 
-    // Check for API key
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       throw new Error("GEMINI_API_KEY environment variable is not set");
     }
 
-    // Get data from state
     const videoData = await state.get(traceId, "videoData");
     const metadata = await state.get(traceId, "metadata");
-    const prompts = await state.get(traceId, "prompts");
 
     if (!videoData || !metadata) {
       throw new Error("Video data or metadata not found in state");
     }
 
-    // Update status to processing
     await state.set(traceId, "status", {
       status: "generating-thumbnail",
       updatedAt: new Date().toISOString(),
@@ -51,27 +58,27 @@ export const handler: Handlers["Generate-Thumbnail-Image"] = async (
       hasTitle: Boolean(metadata.title),
     });
 
-    // Initialize Gemini AI client
     const genAI = new GoogleGenerativeAI(apiKey);
 
-    // Build thumbnail prompt
-    const thumbnailPrompt = prompts?.thumbnailPrompt ||
-      `Create a vibrant, eye-catching YouTube thumbnail image for a video titled "${metadata.title || videoData.fileName}".
-      
+    const fullThumbnailPrompt = thumbnailPrompt || buildDefaultThumbnailPrompt(metadata.title, videoData.fileName);
+
+    const enhancedPrompt = `${fullThumbnailPrompt}
+
+Style: ${thumbnailStyle || "vibrant and professional"}
+Color Scheme: ${thumbnailColors?.join(", ") || "bright, contrasting colors"}
+${thumbnailTextOverlay ? `Text to include: "${thumbnailTextOverlay}"` : "No text overlay needed"}
+
 Requirements:
-- Bold, attention-grabbing design
-- Bright, contrasting colors
-- Clear focal point
-- Professional quality suitable for YouTube (1280x720)
-- No text overlay (we'll add that separately)
-- High contrast and saturation for visibility at small sizes`;
+- YouTube thumbnail dimensions (1280x720 aspect ratio)
+- Bold, eye-catching design
+- High contrast for visibility at small sizes
+- Professional quality`;
 
     logger.info("Generating thumbnail with Gemini", {
       traceId,
-      promptLength: thumbnailPrompt.length,
+      promptLength: enhancedPrompt.length,
     });
 
-    // Get the image generation model
     const model = genAI.getGenerativeModel({
       model: "gemini-2.0-flash-exp",
       generationConfig: {
@@ -81,48 +88,37 @@ Requirements:
       },
     });
 
-    // Generate image using Gemini Imagen
     const response = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: thumbnailPrompt }] }],
+      contents: [{ role: "user", parts: [{ text: enhancedPrompt }] }],
     });
 
     const result = response.response;
 
-    // Process the response
-    let thumbnailPath: string | null = null;
-    let thumbnailBase64: string | null = null;
+    let thumbnailBuffer: Buffer | null = null;
+    let thumbnailFormat: SupportedThumbnailFormat = "jpeg";
 
-    // Check if response has inline data (image)
     const candidates = result.candidates;
     if (candidates && candidates[0]?.content?.parts) {
       for (const part of candidates[0].content.parts) {
         if (part.inlineData) {
-          // Got image data
           const imageData = part.inlineData.data;
-          const mimeType = part.inlineData.mimeType || "image/png";
+          const mimeType = part.inlineData.mimeType || "image/jpeg";
 
           if (imageData) {
-            // Store base64 in state
-            thumbnailBase64 = imageData;
+            thumbnailBuffer = Buffer.from(imageData, "base64");
 
-            // Save to file
-            const outputDir = path.join(process.cwd(), "output", "thumbnails");
-            if (!fs.existsSync(outputDir)) {
-              fs.mkdirSync(outputDir, { recursive: true });
+            if (mimeType.includes("png")) {
+              thumbnailFormat = "png";
+            } else if (mimeType.includes("webp")) {
+              thumbnailFormat = "webp";
+            } else {
+              thumbnailFormat = "jpeg";
             }
 
-            const extension = mimeType.split("/")[1] || "png";
-            const fileName = `thumbnail-${traceId}.${extension}`;
-            thumbnailPath = path.join(outputDir, fileName);
-
-            // Write image file
-            const buffer = Buffer.from(imageData, "base64");
-            fs.writeFileSync(thumbnailPath, buffer);
-
-            logger.info("Thumbnail image saved", {
+            logger.info("Thumbnail image generated", {
               traceId,
-              path: thumbnailPath,
-              size: buffer.length,
+              size: thumbnailBuffer.length,
+              format: thumbnailFormat,
             });
 
             break;
@@ -131,11 +127,9 @@ Requirements:
       }
     }
 
-    // If no image was generated, use a placeholder approach
-    if (!thumbnailBase64) {
-      logger.warn("Gemini did not return an image, generating text description instead", { traceId });
+    if (!thumbnailBuffer) {
+      logger.warn("Gemini did not return an image, creating placeholder", { traceId });
 
-      // Get text description for thumbnail
       const textResponse = await model.generateContent({
         contents: [{
           role: "user",
@@ -148,27 +142,27 @@ Requirements:
 
       const description = textResponse.response.text();
 
-      // Store description in state (no actual image)
       await state.set(traceId, "thumbnail", {
         description,
-        path: null,
+        storageKey: null,
+        url: null,
         generatedAt: new Date().toISOString(),
         isPlaceholder: true,
       });
 
-      // Update status
       await state.set(traceId, "status", {
         status: "thumbnail-description-generated",
         updatedAt: new Date().toISOString(),
       });
 
-      logger.info("Thumbnail description generated", { traceId, description });
+      logger.info("Thumbnail description generated (no image)", { traceId });
 
       await emit({
         topic: "thumbnail.image.generated",
         data: {
           traceId,
-          thumbnailPath: null,
+          thumbnailStorageKey: null,
+          thumbnailUrl: null,
           hasImage: false,
           description,
         },
@@ -177,30 +171,46 @@ Requirements:
       return;
     }
 
-    // Store thumbnail data in state
+    logger.info("Uploading thumbnail to storage", { traceId });
+
+    const { storageKey, url } = await uploadThumbnail(thumbnailBuffer, thumbnailFormat);
+
+    logger.info("Thumbnail uploaded to storage", {
+      traceId,
+      storageKey,
+      url,
+    });
+
     await state.set(traceId, "thumbnail", {
-      base64: thumbnailBase64,
-      path: thumbnailPath,
+      storageKey,
+      url,
+      format: thumbnailFormat,
+      size: thumbnailBuffer.length,
       generatedAt: new Date().toISOString(),
       isPlaceholder: false,
     });
 
-    // Update status
     await state.set(traceId, "status", {
       status: "thumbnail-generated",
       updatedAt: new Date().toISOString(),
     });
 
-    logger.info("Thumbnail generated successfully", { traceId });
+    logger.info("Thumbnail generated and uploaded successfully", {
+      traceId,
+      storageKey,
+      url,
+    });
 
     await emit({
       topic: "thumbnail.image.generated",
       data: {
         traceId,
-        thumbnailPath,
+        thumbnailStorageKey: storageKey,
+        thumbnailUrl: url,
         hasImage: true,
       },
     });
+
   } catch (error: any) {
     logger.error("Error generating thumbnail", {
       traceId,
@@ -208,19 +218,37 @@ Requirements:
       stack: error.stack,
     });
 
-    // Update status to failed
-    await state.set(traceId, "status", {
-      status: "thumbnail-generation-failed",
-      error: error.message,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      await state.set(traceId, "status", {
+        status: "thumbnail-generation-failed",
+        error: error.message,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+    }
 
     await emit({
       topic: "thumbnail.image.generation.error",
       data: {
         traceId,
         error: error.message,
+        step: "generate-thumbnail",
       },
     });
   }
 };
+
+function buildDefaultThumbnailPrompt(title: string, fileName: string): string {
+  const subject = title || fileName || "video content";
+
+  return `Create a vibrant, eye-catching YouTube thumbnail image for a video titled "${subject}".
+
+Design Requirements:
+- Bold, attention-grabbing composition
+- Bright, contrasting colors that pop
+- Clear focal point in the center
+- Professional quality suitable for YouTube
+- High contrast and saturation for visibility at small sizes
+- Modern, clean aesthetic
+- Suitable for 1280x720 dimensions`;
+}

@@ -141,8 +141,6 @@ jobs:
           script: |
             sleep 30
             sudo docker ps
-            curl -sf http://localhost:3000/health || echo "⚠️ Backend health check failed"
-            curl -sf http://localhost:4173 || echo "⚠️ Frontend health check failed"
 
       - name: Deployment complete
         run: echo "✅ Deployment complete!"

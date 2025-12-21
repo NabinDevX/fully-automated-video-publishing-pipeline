@@ -26,8 +26,10 @@ interface UploadResult {
   uploadedAt: string;
 }
 
-interface Metadata {
-  userEmail?: string;
+interface ConnectedUser {
+  email: string;
+  name?: string;
+  channelTitle?: string;
 }
 
 export const handler: Handlers["Send the success email"] = async (
@@ -39,31 +41,28 @@ export const handler: Handlers["Send the success email"] = async (
   try {
     logger.info("Starting email notification", { traceId, videoId });
 
-    // Get data from state
-    const metadata: Metadata | null = await state.get(traceId, "metadata");
     const uploadResult: UploadResult | null = await state.get(traceId, "uploadResult");
 
-    // Get user email from metadata or connected user
-    let userEmail = metadata?.userEmail;
+    const connectedUser = await getFirstConnectedUser() as ConnectedUser | null;
 
-    if (!userEmail) {
-      const connectedUser = await getFirstConnectedUser();
-      userEmail = connectedUser?.email;
-    }
-
-    if (!userEmail) {
-      logger.warn("No user email found, skipping email notification", { traceId });
+    if (!connectedUser || !connectedUser.email) {
+      logger.warn("No connected YouTube user email found, skipping email notification", { traceId });
       return;
     }
 
-    // Check Brevo configuration
+    const userEmail = connectedUser.email;
+
+    logger.info("Sending email to authenticated YouTube user", {
+      traceId,
+      email: userEmail,
+    });
+
     if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
       logger.warn("Brevo not configured, skipping email notification", { traceId });
       return;
     }
 
-    // Prepare email content
-    const channelTitle = uploadResult?.channelTitle || "your YouTube channel";
+    const channelTitle = uploadResult?.channelTitle || connectedUser.channelTitle || "your YouTube channel";
     const uploadedAt = uploadResult?.uploadedAt
       ? new Date(uploadResult.uploadedAt).toLocaleString()
       : new Date().toLocaleString();
@@ -71,7 +70,7 @@ export const handler: Handlers["Send the success email"] = async (
     const emailSubject = `✅ Video Published: "${title}"`;
 
     const emailTextContent = `
-Hi there!
+Hi ${connectedUser.name || "there"}!
 
 Great news! Your video has been successfully uploaded to YouTube.
 
@@ -113,7 +112,7 @@ Video Publishing Pipeline
   </div>
   
   <div style="background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px;">
-    <p style="font-size: 16px; margin-bottom: 20px;">Hi there!</p>
+    <p style="font-size: 16px; margin-bottom: 20px;">Hi ${connectedUser.name || "there"}!</p>
     
     <p style="font-size: 16px; margin-bottom: 20px;">
       Great news! Your video has been successfully uploaded to YouTube.
@@ -177,7 +176,6 @@ Video Publishing Pipeline
 </html>
     `.trim();
 
-    // Send email via Brevo API
     const response = await fetch("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: {
@@ -207,7 +205,6 @@ Video Publishing Pipeline
       to: userEmail,
     });
 
-    // Update state with email status
     await state.set(traceId, "emailNotification", {
       sent: true,
       to: userEmail,
@@ -226,7 +223,6 @@ Video Publishing Pipeline
       failedAt: new Date().toISOString(),
     });
 
-    // Emit error for error handler event
     await emit({
       topic: "pipeline.error",
       data: {

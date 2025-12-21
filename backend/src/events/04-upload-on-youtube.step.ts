@@ -5,13 +5,14 @@ import {
   getFirstConnectedUser,
   getAuthenticatedClient,
 } from "../helper/oauth";
+import { getVideoStream, getThumbnailStream } from "../shared/storage";
 
 export const config: EventConfig = {
   name: "Upload-To-YouTube",
   type: "event",
   description: "Upload video with generated metadata to YouTube",
   flows: ["yt.video.upload"],
-  subscribes: ["file.uploaded", "thumbnail.image.generated", "final.title.generated"],
+  subscribes: ["thumbnail.image.generated", "final.title.generated"],
   emits: [
     { topic: "youtube.upload.completed", label: "YouTube Upload Completed" },
     { topic: "youtube.upload.error", label: "YouTube Upload Error", conditional: true },
@@ -27,7 +28,6 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
   try {
     logger.info("Starting YouTube upload", { traceId });
 
-    // Get all data from state
     const videoData = await state.get(traceId, "videoData");
     const metadata = await state.get(traceId, "metadata");
     const generatedTitle = await state.get(traceId, "generatedTitle");
@@ -41,13 +41,15 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
       throw new Error("Metadata not found in state");
     }
 
-    // Update status
+    if (!videoData.storageKey) {
+      throw new Error("Video storage key not found. Video must be uploaded to storage first.");
+    }
+
     await state.set(traceId, "status", {
       status: "uploading-to-youtube",
       updatedAt: new Date().toISOString(),
     });
 
-    // Get connected user
     const connectedUser = await getFirstConnectedUser();
     if (!connectedUser) {
       throw new Error("No YouTube account connected. Please connect your account first.");
@@ -58,35 +60,28 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
       email: connectedUser.email,
     });
 
-    // Get authenticated OAuth client
     const authClient = await getAuthenticatedClient(connectedUser.email);
 
-    // Initialize YouTube API
     const youtube = google.youtube({ version: "v3", auth: authClient });
 
-    // Prepare video title and description
     const videoTitle = generatedTitle?.title || metadata.title || videoData.fileName;
-    const videoDescription = metadata.description || `Uploaded via YouTube Auto Publisher`;
+    const videoDescription = metadata.description || "Uploaded via YouTube Auto Publisher";
+    const tags = Array.isArray(metadata.tags) ? metadata.tags : [];
 
-    // Prepare tags
-    const tags = metadata.tags || [];
+    logger.info("Getting video stream from storage", {
+      traceId,
+      storageKey: videoData.storageKey,
+    });
 
-    // Convert base64 buffer back to Buffer
-    const videoBuffer = Buffer.from(videoData.buffer, "base64");
-
-    // Create readable stream from buffer
-    const videoStream = new Readable();
-    videoStream.push(videoBuffer);
-    videoStream.push(null);
+    const videoStream = await getVideoStream(videoData.storageKey);
 
     logger.info("Uploading video to YouTube", {
       traceId,
       title: videoTitle,
       privacy: metadata.privacy,
-      fileSize: videoBuffer.length,
+      storageKey: videoData.storageKey,
     });
 
-    // Upload video to YouTube
     const uploadResponse = await youtube.videos.insert({
       part: ["snippet", "status"],
       requestBody: {
@@ -94,7 +89,7 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
           title: videoTitle,
           description: videoDescription,
           tags: tags,
-          categoryId: "22", // People & Blogs (default)
+          categoryId: "22",
           defaultLanguage: "en",
           defaultAudioLanguage: "en",
         },
@@ -104,7 +99,7 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
         },
       },
       media: {
-        mimeType: videoData.mimetype,
+        mimeType: videoData.mimetype || "video/mp4",
         body: videoStream,
       },
     });
@@ -118,21 +113,21 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
       videoUrl,
     });
 
-    // Upload thumbnail if available
     let thumbnailUploaded = false;
-    if (thumbnail?.base64 && videoId) {
+    if (thumbnail?.storageKey && videoId && !thumbnail.isPlaceholder) {
       try {
-        logger.info("Uploading thumbnail", { traceId, videoId });
+        logger.info("Uploading thumbnail from storage", {
+          traceId,
+          videoId,
+          thumbnailStorageKey: thumbnail.storageKey,
+        });
 
-        const thumbnailBuffer = Buffer.from(thumbnail.base64, "base64");
-        const thumbnailStream = new Readable();
-        thumbnailStream.push(thumbnailBuffer);
-        thumbnailStream.push(null);
+        const thumbnailStream = await getThumbnailStream(thumbnail.storageKey);
 
         await youtube.thumbnails.set({
           videoId: videoId,
           media: {
-            mimeType: "image/png",
+            mimeType: `image/${thumbnail.format || "jpeg"}`,
             body: thumbnailStream,
           },
         });
@@ -145,11 +140,16 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
           videoId,
           error: thumbnailError.message,
         });
-        // Continue without thumbnail - video is already uploaded
       }
+    } else {
+      logger.info("No thumbnail to upload", {
+        traceId,
+        hasThumbnail: Boolean(thumbnail),
+        hasStorageKey: Boolean(thumbnail?.storageKey),
+        isPlaceholder: thumbnail?.isPlaceholder,
+      });
     }
 
-    // Store upload result in state
     await state.set(traceId, "uploadResult", {
       videoId,
       videoUrl,
@@ -160,7 +160,6 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
       uploadedAt: new Date().toISOString(),
     });
 
-    // Update final status
     await state.set(traceId, "status", {
       status: "completed",
       videoId,
@@ -186,6 +185,7 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
         thumbnailUploaded,
       },
     });
+
   } catch (error: any) {
     logger.error("Error uploading to YouTube", {
       traceId,
@@ -193,7 +193,6 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
       stack: error.stack,
     });
 
-    // Handle specific YouTube API errors
     let errorMessage = error.message;
     if (error.code === 403) {
       errorMessage = "YouTube API quota exceeded or permission denied";
@@ -203,18 +202,21 @@ export const handler: Handlers["Upload-To-YouTube"] = async (
       errorMessage = `Invalid request: ${error.message}`;
     }
 
-    // Update status to failed
-    await state.set(traceId, "status", {
-      status: "upload-failed",
-      error: errorMessage,
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      await state.set(traceId, "status", {
+        status: "upload-failed",
+        error: errorMessage,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch {
+    }
 
     await emit({
       topic: "youtube.upload.error",
       data: {
         traceId,
         error: errorMessage,
+        step: "youtube-upload",
       },
     });
   }

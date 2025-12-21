@@ -17,40 +17,40 @@
     "id": "yt.video.upload",
     "config": {
       "src\\events\\error-handeler.step.ts": {
-        "x": 710,
-        "y": -856
-      },
-      "src\\events\\04-upload-on-youtube.step.ts": {
-        "x": 793,
-        "y": -425
-      },
-      "src\\events\\03.2-generate-title.step.ts": {
-        "x": 792,
-        "y": 246
-      },
-      "src\\events\\03.1-generate-thumbnail.step.ts": {
-        "x": -183,
-        "y": 308
-      },
-      "src\\events\\02-generate-prompts.step.ts": {
-        "x": -516,
-        "y": -222
-      },
-      "src\\apis\\01.2.1-upload-video.step.ts": {
-        "x": -1212,
-        "y": -575
-      },
-      "src\\apis\\01.1.2-yt-callback.step.ts": {
-        "x": -842,
-        "y": 289
-      },
-      "src\\apis\\01.1.1-yt-channel-auth.step.ts": {
-        "x": -1219,
-        "y": 103
+        "x": 340,
+        "y": -889
       },
       "src\\events\\05-send-complition-mail.step.ts": {
-        "x": 1425,
-        "y": -416
+        "x": 963,
+        "y": -496
+      },
+      "src\\events\\03.2-generate-title.step.ts": {
+        "x": 251,
+        "y": -340
+      },
+      "src\\events\\03.1-generate-thumbnail.step.ts": {
+        "x": -313,
+        "y": -168
+      },
+      "src\\events\\02-generate-prompts.step.ts": {
+        "x": -592,
+        "y": -709
+      },
+      "src\\apis\\01.2.1-upload-video.step.ts": {
+        "x": -1064,
+        "y": -867
+      },
+      "src\\apis\\01.1.2-yt-callback.step.ts": {
+        "x": -770,
+        "y": -328
+      },
+      "src\\apis\\01.1.1-yt-channel-auth.step.ts": {
+        "x": -1154,
+        "y": -322
+      },
+      "src\\events\\04-upload-on-youtube.step.ts": {
+        "x": 319,
+        "y": -99
       }
     }
   }

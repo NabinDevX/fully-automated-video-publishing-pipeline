@@ -27,7 +27,6 @@
     "@motiadev/plugin-logs": "^0.17.9-beta.191",
     "@motiadev/plugin-observability": "^0.17.9-beta.191",
     "@motiadev/plugin-states": "^0.17.9-beta.191",
-    "chokidar": "^5.0.0",
     "google-auth-library": "^10.5.0",
     "googleapis": "^169.0.0",
     "mongoose": "^9.0.2",
