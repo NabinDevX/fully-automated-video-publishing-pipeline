@@ -107,13 +107,13 @@ function App() {
   }, []);
 
   // Helper function to get stored tokens
-  const getStoredTokens = () => {
-    return {
-      accessToken: localStorage.getItem("yt_access_token"),
-      refreshToken: localStorage.getItem("yt_refresh_token"),
-      email: localStorage.getItem("yt_email"),
-    };
-  };
+  // const getStoredTokens = () => {
+  //   return {
+  //     accessToken: localStorage.getItem("yt_access_token"),
+  //     refreshToken: localStorage.getItem("yt_refresh_token"),
+  //     email: localStorage.getItem("yt_email"),
+  //   };
+  // };
 
   const clearMessage = () => {
     setTimeout(() => {
