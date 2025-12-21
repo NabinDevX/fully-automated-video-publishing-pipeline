@@ -17,40 +17,40 @@
     "id": "yt.video.upload",
     "config": {
       "src\\events\\error-handeler.step.ts": {
-        "x": 1268,
-        "y": -888
+        "x": 710,
+        "y": -856
       },
       "src\\events\\04-upload-on-youtube.step.ts": {
-        "x": 1220,
-        "y": 116
+        "x": 793,
+        "y": -425
       },
       "src\\events\\03.2-generate-title.step.ts": {
-        "x": 1237,
-        "y": 623
+        "x": 792,
+        "y": 246
       },
       "src\\events\\03.1-generate-thumbnail.step.ts": {
-        "x": 87,
-        "y": 589
+        "x": -183,
+        "y": 308
       },
       "src\\events\\02-generate-prompts.step.ts": {
-        "x": -50,
-        "y": 233
+        "x": -516,
+        "y": -222
       },
       "src\\apis\\01.2.1-upload-video.step.ts": {
-        "x": -358,
-        "y": -34
+        "x": -1212,
+        "y": -575
       },
       "src\\apis\\01.1.2-yt-callback.step.ts": {
         "x": -842,
         "y": 289
       },
       "src\\apis\\01.1.1-yt-channel-auth.step.ts": {
-        "x": -803,
-        "y": 28
+        "x": -1219,
+        "y": 103
       },
       "src\\events\\05-send-complition-mail.step.ts": {
-        "x": 0,
-        "y": 0
+        "x": 1425,
+        "y": -416
       }
     }
   }

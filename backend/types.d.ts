@@ -13,6 +13,7 @@ declare module 'motia' {
 
   interface Handlers {
     'ErrorHandler': EventHandler<never, never>
+    'Send the success email': EventHandler<never, { topic: 'pipeline.error'; data: never }>
     'Upload-To-YouTube': EventHandler<never, { topic: 'youtube.upload.completed'; data: never } | { topic: 'youtube.upload.error'; data: never }>
     'Generate-Video-Title': EventHandler<never, { topic: 'final.title.generated'; data: never } | { topic: 'final.title.generation.error'; data: never }>
     'Generate-Thumbnail-Image': EventHandler<never, { topic: 'thumbnail.image.generated'; data: never } | { topic: 'thumbnail.image.generation.error'; data: never }>
@@ -20,7 +21,6 @@ declare module 'motia' {
     'Upload-File': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'file.uploaded'; data: never } | { topic: 'file.upload.error'; data: never }>
     'YouTube-OAuth-Callback': ApiRouteHandler<Record<string, unknown>, unknown, never>
     'YouTube-Channel-Auth': ApiRouteHandler<Record<string, unknown>, unknown, never>
-    'Send the success email': EventHandler<never, never>
   }
     
 }

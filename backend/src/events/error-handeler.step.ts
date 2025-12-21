@@ -5,7 +5,7 @@ export const config: EventConfig = {
   type: "event",
   description: "Handle errors from YouTube video upload workflow",
   flows: ["yt.video.upload"],
-  subscribes: ["yt.prompts.generation.error", "file.upload.error", "initial.title.thumbnail.prompts.generation.error", "thumbnail.image.generation.error", "final.title.generation.error", "youtube.upload.error"],
+  subscribes: ["yt.prompts.generation.error", "file.upload.error", "initial.title.thumbnail.prompts.generation.error", "thumbnail.image.generation.error", "final.title.generation.error", "youtube.upload.error", "pipeline.error"],
   emits: [],
 };
 
