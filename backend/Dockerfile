@@ -10,7 +10,7 @@ WORKDIR /app
 COPY pnpm-lock.yaml package.json ./
 
 # Install production dependencies only
-RUN pnpm install --prod --frozen-lockfile
+RUN npx pnpm install --prod --frozen-lockfile
 
 # Copy application source
 COPY . .
