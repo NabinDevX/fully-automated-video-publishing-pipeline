@@ -16,14 +16,6 @@
   {
     "id": "yt.video.upload",
     "config": {
-      "src\\jobs\\folder-watcher.step.ts": {
-        "x": -392,
-        "y": -296
-      },
-      "src\\events\\process-file.step.ts": {
-        "x": 26,
-        "y": -165
-      },
       "src\\events\\error-handeler.step.ts": {
         "x": 1268,
         "y": -888
@@ -55,6 +47,10 @@
       "src\\apis\\01.1.1-yt-channel-auth.step.ts": {
         "x": -803,
         "y": 28
+      },
+      "src\\events\\05-send-complition-mail.step.ts": {
+        "x": 0,
+        "y": 0
       }
     }
   }

@@ -12,16 +12,15 @@ declare module 'motia' {
   }
 
   interface Handlers {
-    'WatchUploads': CronHandler<{ topic: 'file.new.detected'; data: never }>
-    'ProcessNewFile': EventHandler<never, never>
     'ErrorHandler': EventHandler<never, never>
-    'Upload-To-YouTube': EventHandler<never, { topic: 'youtube.upload.error'; data: never }>
+    'Upload-To-YouTube': EventHandler<never, { topic: 'youtube.upload.completed'; data: never } | { topic: 'youtube.upload.error'; data: never }>
     'Generate-Video-Title': EventHandler<never, { topic: 'final.title.generated'; data: never } | { topic: 'final.title.generation.error'; data: never }>
     'Generate-Thumbnail-Image': EventHandler<never, { topic: 'thumbnail.image.generated'; data: never } | { topic: 'thumbnail.image.generation.error'; data: never }>
     'Generate-Prompts': EventHandler<never, { topic: 'initial.title.generated'; data: never } | { topic: 'thumbnail.prompts.generated'; data: never } | { topic: 'initial.title.thumbnail.prompts.generation.error'; data: never }>
     'Upload-File': ApiRouteHandler<Record<string, unknown>, unknown, { topic: 'file.uploaded'; data: never } | { topic: 'file.upload.error'; data: never }>
     'YouTube-OAuth-Callback': ApiRouteHandler<Record<string, unknown>, unknown, never>
     'YouTube-Channel-Auth': ApiRouteHandler<Record<string, unknown>, unknown, never>
+    'Send the success email': EventHandler<never, never>
   }
     
 }
