@@ -1,7 +1,7 @@
 FROM motiadev/motia:latest
 
 # Enable pnpm and specify version
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN npm install -g pnpm@9
 
 # Create app directory
 WORKDIR /app
