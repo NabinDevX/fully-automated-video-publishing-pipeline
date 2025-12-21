@@ -46,4 +46,4 @@ COPY --from=builder /app/dist ./dist
 EXPOSE 4173
 
 # Run vite preview
-CMD ["pnpm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "4173"]
+CMD ["pnpm", "run", "preview"]
