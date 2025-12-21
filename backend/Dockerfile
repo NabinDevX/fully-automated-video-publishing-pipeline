@@ -17,6 +17,6 @@ COPY . .
 
 # Expose port (match your nginx upstream)
 EXPOSE 3000
-RUN npm install -g pnpm
+
 # Start application
-CMD ["pnpm", "run", "start"]
+CMD ["npm", "run", "start"]
