@@ -7,8 +7,9 @@ export const config: EventConfig = {
   flows: ["yt.video.upload"],
   subscribes: ["file.uploaded"],
   emits: [
-    { topic: "yt.prompts.generated", label: "Prompt Generated" },
-    { topic: "yt.prompts.generation.error", label: "Prompt Generation Error", conditional: true },
+    { topic: "initial.title.generated", label: "Title Generated" },
+    { topic: "thumbnail.prompts.generated", label: "Thumbnail Prompt Generated" },
+    { topic: "initial.title.thumbnail.prompts.generation.error", label: "Generation Error", conditional: true },
   ],
 };
 
@@ -81,7 +82,7 @@ Include suggested text overlay, colors, and composition.`;
     });
 
     await emit({
-      topic: "yt.prompts.generated",
+      topic: "thumbnail.prompts.generated",
       data: {
         traceId,
         promptTypes: Object.keys(prompts),
@@ -101,7 +102,7 @@ Include suggested text overlay, colors, and composition.`;
     });
 
     await emit({
-      topic: "yt.prompts.generation.error",
+      topic: "thumbnail.prompts.generation.error",
       data: {
         traceId,
         error: error.message,

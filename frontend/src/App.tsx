@@ -83,6 +83,16 @@ function App() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       if (event.data?.type === "youtube-auth-success") {
+        if (event.data.accessToken) {
+          localStorage.setItem("yt_access_token", event.data.accessToken);
+        }
+        if (event.data.refreshToken) {
+          localStorage.setItem("yt_refresh_token", event.data.refreshToken);
+        }
+        if (event.data.email) {
+          localStorage.setItem("yt_email", event.data.email);
+        }
+
         checkConnectionStatus();
         setSuccess("YouTube channel connected successfully!");
         clearMessage();
@@ -95,6 +105,15 @@ function App() {
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, []);
+
+  // Helper function to get stored tokens
+  const getStoredTokens = () => {
+    return {
+      accessToken: localStorage.getItem("yt_access_token"),
+      refreshToken: localStorage.getItem("yt_refresh_token"),
+      email: localStorage.getItem("yt_email"),
+    };
+  };
 
   const clearMessage = () => {
     setTimeout(() => {
@@ -136,9 +155,16 @@ function App() {
     );
   };
 
+  // Clear tokens on disconnect
   const handleDisconnect = async () => {
     try {
       await fetch(`${API_BASE}/api/youtube/disconnect`, { method: "POST" });
+
+      // Clear stored tokens
+      localStorage.removeItem("yt_access_token");
+      localStorage.removeItem("yt_refresh_token");
+      localStorage.removeItem("yt_email");
+
       setIsConnected(false);
       setChannel(null);
       setSuccess("YouTube channel disconnected");

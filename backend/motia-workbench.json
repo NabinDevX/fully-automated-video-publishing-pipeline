@@ -17,32 +17,44 @@
     "id": "yt.video.upload",
     "config": {
       "src\\jobs\\folder-watcher.step.ts": {
-        "x": -389,
-        "y": -243
+        "x": -392,
+        "y": -296
       },
       "src\\events\\process-file.step.ts": {
-        "x": -40,
-        "y": -212
+        "x": 26,
+        "y": -165
       },
       "src\\events\\error-handeler.step.ts": {
-        "x": 1444,
-        "y": 10
+        "x": 1268,
+        "y": -888
+      },
+      "src\\events\\04-upload-on-youtube.step.ts": {
+        "x": 1220,
+        "y": 116
+      },
+      "src\\events\\03.2-generate-title.step.ts": {
+        "x": 1237,
+        "y": 623
+      },
+      "src\\events\\03.1-generate-thumbnail.step.ts": {
+        "x": 87,
+        "y": 589
+      },
+      "src\\events\\02-generate-prompts.step.ts": {
+        "x": -50,
+        "y": 233
+      },
+      "src\\apis\\01.2.1-upload-video.step.ts": {
+        "x": -358,
+        "y": -34
       },
       "src\\apis\\01.1.2-yt-callback.step.ts": {
-        "x": -837,
-        "y": 125
+        "x": -842,
+        "y": 289
       },
       "src\\apis\\01.1.1-yt-channel-auth.step.ts": {
-        "x": -855,
-        "y": -92
-      },
-      "src\\apis\\01.2.1-detect-videos.step.ts": {
-        "x": 586,
-        "y": -145
-      },
-      "src\\events\\generate-prompts.step.ts": {
-        "x": 445,
-        "y": 319
+        "x": -803,
+        "y": 28
       }
     }
   }

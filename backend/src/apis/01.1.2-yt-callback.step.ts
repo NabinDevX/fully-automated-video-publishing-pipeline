@@ -46,10 +46,28 @@ export const handler: Handlers["YouTube-OAuth-Callback"] = async (
       headers: { "Content-Type": "text/html" },
       body: `
         <script>
-          window.opener.postMessage(
-            "youtube-auth-success",
-            "http://localhost:3000"
-          );
+          const authData = {
+            type: "youtube-auth-success",
+            email: "${email}",
+            accessToken: "${tokens.access_token}",
+            refreshToken: "${tokens.refresh_token}"
+          };
+          
+          // Send to frontend (localhost:5173)
+          if (window.opener) {
+            window.opener.postMessage(authData, "http://localhost:5173");
+          }
+          
+          // Send to Motia workbench plugin (localhost:3000)
+          if (window.opener) {
+            window.opener.postMessage(authData, "http://localhost:3000");
+          }
+          
+          // Alternative: Send to any origin (use with caution)
+          // if (window.opener) {
+          //   window.opener.postMessage(authData, "*");
+          // }
+          
           window.close();
         </script>
       `,
@@ -58,7 +76,19 @@ export const handler: Handlers["YouTube-OAuth-Callback"] = async (
     logger.error("OAuth callback failed", { error });
     return {
       status: 500,
-      body: "Authentication failed",
+      headers: { "Content-Type": "text/html" },
+      body: `
+        <script>
+          const errorData = { type: "youtube-auth-error", error: "Authentication failed" };
+          
+          if (window.opener) {
+            window.opener.postMessage(errorData, "http://localhost:5173");
+            window.opener.postMessage(errorData, "http://localhost:3000");
+          }
+          
+          window.close();
+        </script>
+      `,
     };
   }
 };

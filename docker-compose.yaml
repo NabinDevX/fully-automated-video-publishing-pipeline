@@ -1,0 +1,39 @@
+services:
+  # ===================
+  # BACKEND SERVICE
+  # ===================
+  backend:
+    image: ghcr.io/${REPO_LOWER:-video-pipeline}/backend:latest
+    container_name: video-pipeline-backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - YOUTUBE_API_KEY=${YOUTUBE_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - MONGODB_URI=${MONGODB_URI}
+      - DB_NAME=${DB_NAME}
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - GOOGLE_REDIRECT_URI=${GOOGLE_REDIRECT_URI}
+    volumes:
+      - ./config:/app/config:ro
+    restart: unless-stopped
+
+  # ===================
+  # FRONTEND SERVICE
+  # ===================
+  frontend:
+    image: ghcr.io/${REPO_LOWER:-video-pipeline}/frontend:latest
+    container_name: video-pipeline-frontend
+    ports:
+      - "4173:4173"
+    environment:
+      - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:3000}
+    depends_on:
+      - backend
+    restart: unless-stopped
