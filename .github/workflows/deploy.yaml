@@ -9,7 +9,6 @@ env:
   REGISTRY: ghcr.io
 
 jobs:
-  # 1️⃣ Build and Push to GHCR
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
@@ -19,38 +18,35 @@ jobs:
       repo_lower: ${{ steps.names.outputs.repo_lower }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Prepare lowercase image names
         id: names
         run: |
           REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           echo "repo_lower=$REPO_LOWER" >> $GITHUB_OUTPUT
-          echo "REPO_LOWER=$REPO_LOWER" >> $GITHUB_ENV
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Backend Image
+      - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/backend:latest
+          tags: ghcr.io/${{ steps.names.outputs.repo_lower }}/backend:latest
 
-      - name: Build and Push Frontend Image
+      - name: Build & push frontend
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.REPO_LOWER }}/frontend:latest
+          tags: ghcr.io/${{ steps.names.outputs.repo_lower }}/frontend:latest
 
-  # 2️⃣ Deploy on VM
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -58,57 +54,17 @@ jobs:
       REPO_LOWER: ${{ needs.build-and-push.outputs.repo_lower }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Create .env file
-        run: |
-          cat > .env << EOF
-          NODE_ENV=production
-          REPO_LOWER=${{ env.REPO_LOWER }}
-
-          # YouTube
-          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
-
-          # Gemini
-          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
-
-          # MongoDB
-          MONGODB_URI=${{ secrets.MONGODB_URI }}
-          DB_NAME=${{ secrets.DB_NAME }}
-
-          # AWS S3
-          AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
-          AWS_REGION=${{ secrets.AWS_REGION }}
-          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-          # Google OAuth
-          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
-          GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}
-
-          # Frontend
-          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
-          EOF
-
-      - name: Ensure target directory exists on VM
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VM_HOST }}
-          username: ${{ secrets.VM_USER }}
-          key: ${{ secrets.VM_SSH_KEY }}
-          script: mkdir -p ~/video-pipeline
-
-      - name: Copy files to VM
+      # 1️⃣ Copy env, compose, AND tunnel.sh
+      - name: Copy deployment files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
-          source: ".env,docker-compose.yaml"
-          target: "~/video-pipeline/"
+          source: ".env,docker-compose.yaml,tunnel.sh"
+          target: "~/video-pipeline"
 
+      # 2️⃣ Deploy containers
       - name: Deploy containers
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -118,29 +74,50 @@ jobs:
           script: |
             cd ~/video-pipeline
 
-            # Login to GHCR
             echo "${{ secrets.GITHUB_TOKEN }}" | sudo docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-            # Pull latest images
             sudo docker pull ghcr.io/${{ env.REPO_LOWER }}/backend:latest
             sudo docker pull ghcr.io/${{ env.REPO_LOWER }}/frontend:latest
 
-            # Restart containers
             sudo docker compose down --remove-orphans || true
             sudo docker compose up -d
-
-            # Cleanup old images
             sudo docker image prune -f
 
-      - name: Health check
+      # 3️⃣ Ensure Cloudflare tunnel is running (SAFE)
+      - name: Ensure Cloudflare tunnel is running
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VM_HOST }}
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            sleep 30
-            sudo docker ps
+            cd ~/video-pipeline
+            chmod +x tunnel.sh
+
+            if pgrep -f "cloudflared tunnel --url http://localhost:4173" >/dev/null; then
+              echo "✅ Cloudflare tunnel already running. Skipping."
+            else
+              echo "🚀 Cloudflare tunnel not running. Starting..."
+              sudo ./tunnel.sh
+            fi
+
+      # 4️⃣ Show status (debug visibility)
+      - name: Show tunnel status
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            echo "Running cloudflared processes:"
+            pgrep -af cloudflared || echo "None"
+
+            if [ -f /var/run/cloudflared.url ]; then
+              echo "Active tunnel URL:"
+              cat /var/run/cloudflared.url
+            else
+              echo "Tunnel URL file not found."
+            fi
 
       - name: Deployment complete
         run: echo "✅ Deployment complete!"

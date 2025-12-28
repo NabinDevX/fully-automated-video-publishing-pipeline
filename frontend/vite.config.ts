@@ -8,6 +8,8 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     server: {
+      host: true,
+      allowedHosts: true, // ✅ AUTOMATIC — no hostname management
       proxy: {
         '/api': {
           target: apiBaseUrl,
