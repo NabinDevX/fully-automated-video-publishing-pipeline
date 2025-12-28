@@ -54,7 +54,37 @@ jobs:
       REPO_LOWER: ${{ needs.build-and-push.outputs.repo_lower }}
 
     steps:
-      # 1️⃣ Copy env, compose, AND tunnel.sh
+      - uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          NODE_ENV=production
+          REPO_LOWER=${{ env.REPO_LOWER }}
+
+          # Frontend
+          VITE_API_BASE_URL=${{ secrets.VITE_API_BASE_URL }}
+
+          # Backend / DB
+          MONGODB_URI=${{ secrets.MONGODB_URI }}
+          DB_NAME=${{ secrets.DB_NAME }}
+
+          # API Keys
+          YOUTUBE_API_KEY=${{ secrets.YOUTUBE_API_KEY }}
+          GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+
+          # AWS
+          AWS_S3_BUCKET_NAME=${{ secrets.AWS_S3_BUCKET_NAME }}
+          AWS_REGION=${{ secrets.AWS_REGION }}
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+          # Google OAuth
+          GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GOOGLE_REDIRECT_URI=${{ secrets.GOOGLE_REDIRECT_URI }}
+          EOF
+
       - name: Copy deployment files to VM
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -64,7 +94,6 @@ jobs:
           source: ".env,docker-compose.yaml,tunnel.sh"
           target: "~/video-pipeline"
 
-      # 2️⃣ Deploy containers
       - name: Deploy containers
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -83,7 +112,6 @@ jobs:
             sudo docker compose up -d
             sudo docker image prune -f
 
-      # 3️⃣ Ensure Cloudflare tunnel is running (SAFE)
       - name: Ensure Cloudflare tunnel is running
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -101,7 +129,6 @@ jobs:
               sudo ./tunnel.sh
             fi
 
-      # 4️⃣ Show status (debug visibility)
       - name: Show tunnel status
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -109,8 +136,7 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           script: |
-            echo "Running cloudflared processes:"
-            pgrep -af cloudflared || echo "None"
+            pgrep -af cloudflared || echo "No cloudflared process"
 
             if [ -f /var/run/cloudflared.url ]; then
               echo "Active tunnel URL:"
