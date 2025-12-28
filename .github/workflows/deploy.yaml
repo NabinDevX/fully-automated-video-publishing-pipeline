@@ -112,7 +112,7 @@ jobs:
             sudo docker compose up -d
             sudo docker image prune -f
 
-      - name: Ensure Cloudflare tunnel is running
+      - name: Restart Cloudflare tunnel (force new URL + email)
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VM_HOST }}
@@ -121,13 +121,7 @@ jobs:
           script: |
             cd ~/video-pipeline
             chmod +x tunnel.sh
-
-            if pgrep -f "cloudflared tunnel --url http://localhost:4173" >/dev/null; then
-              echo "✅ Cloudflare tunnel already running. Skipping."
-            else
-              echo "🚀 Cloudflare tunnel not running. Starting..."
-              sudo ./tunnel.sh
-            fi
+            sudo ./tunnel.sh
 
       - name: Show tunnel status
         uses: appleboy/ssh-action@v1.0.0

@@ -23,17 +23,16 @@ command -v mail >/dev/null 2>&1 || {
 }
 
 # ================================
-# CHECK IF TUNNEL IS ALREADY RUNNING
+# STOP ANY EXISTING TUNNEL
 # ================================
-if pgrep -f "cloudflared tunnel --url http://localhost:4173" >/dev/null; then
-  echo "Cloudflare tunnel already running. Exiting."
-  exit 0
-fi
+echo "Stopping any existing Cloudflare tunnels..."
+pkill -f "cloudflared tunnel" || true
+sleep 3
 
 # ================================
-# START TUNNEL (DETACHED)
+# START NEW TUNNEL (DETACHED)
 # ================================
-echo "Starting Cloudflare Quick Tunnel..."
+echo "Starting new Cloudflare Quick Tunnel..."
 
 nohup cloudflared tunnel \
   --url http://localhost:${LOCAL_PORT} \
@@ -43,27 +42,28 @@ nohup cloudflared tunnel \
 sleep 10
 
 # ================================
-# EXTRACT URL
+# EXTRACT NEW URL
 # ================================
-TUNNEL_URL=$(grep -o 'https://.*trycloudflare.com' "$LOG_FILE" | head -n 1)
+TUNNEL_URL=$(grep -o 'https://.*trycloudflare.com' "$LOG_FILE" | tail -n 1)
 
 if [ -z "$TUNNEL_URL" ]; then
-  echo "Failed to detect tunnel URL."
+  echo "❌ Failed to detect tunnel URL."
   exit 1
 fi
 
 echo "$TUNNEL_URL" | sudo tee "$URL_FILE" >/dev/null
 
 # ================================
-# SEND EMAIL (ONLY WHEN STARTED)
+# SEND EMAIL (ALWAYS)
 # ================================
-echo "Cloudflare Tunnel is live at:
+echo "🚀 New Cloudflare Tunnel Started
 
+Public URL:
 $TUNNEL_URL
 
 NOTE:
-This URL will change if the VM reboots or the tunnel restarts." \
-| mail -s "Cloudflare Tunnel URL" "$EMAIL_TO"
+This URL was regenerated during deployment and replaces the previous one." \
+| mail -s "🚀 New Cloudflare Tunnel URL" "$EMAIL_TO"
 
-echo "Tunnel started successfully."
-echo "URL: $TUNNEL_URL"
+echo "✅ Tunnel restarted successfully"
+echo "🌍 URL: $TUNNEL_URL"
